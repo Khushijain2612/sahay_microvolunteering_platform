@@ -188,10 +188,7 @@ const handleSignup = async (e: React.FormEvent) => {
       
       // Redirect based on actual role
       setTimeout(() => {
-        if (userRole === 'admin') {
-          console.log('➡️ Redirecting to admin dashboard');
-          window.location.href = '/admin/dashboard';
-        } else if (userRole === 'ngo_admin') {
+        if (userRole === 'ngo') {
           console.log('➡️ Redirecting to NGO dashboard');
           window.location.href = '/volunteer/dashboard'; // Change this if you want separate NGO dashboard
         } else {

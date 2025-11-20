@@ -30,25 +30,25 @@ export default function App() {
 
   const fetchUserProfile = async () => {
     try {
-      const userData = await api.auth.getProfile();
+      const userData = await api.auth.getMe();
       setUser(userData as any);
     } catch (error) {
       handleLogout();
     }
   };
 
-  const handleLogin = async (email: string, password: string) => {
-    try {
-      const result = await api.auth.login(email, password);
-      authHelper.saveToken(result.token);
-      setIsLoggedIn(true);
-      setShowLoginModal(false);
-      setUser(result.user);
-      return { success: true };
-    } catch (error: any) {
-      return { success: false, error: error.message };
-    }
-  };
+ const handleLogin = async (email: string, password: string) => {
+  try {
+    const result = await api.auth.login({ email, password }); // ✅ Pass as object
+    authHelper.saveToken(result.token);
+    setIsLoggedIn(true);
+    setShowLoginModal(false);
+    setUser(result.user);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
 
   const handleLogout = () => {
     authHelper.removeToken();
