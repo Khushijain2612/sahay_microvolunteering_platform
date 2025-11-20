@@ -55,7 +55,67 @@ exports.getUsers = async (req, res) => {
     });
   }
 };
+// @desc    Get all NGOs with filtering
+// @route   GET /api/admin/ngos
+// @access  Private/Admin
+exports.getNGOs = async (req, res) => {
+  try {
+    const {
+      status,
+      search,
+      page = 1,
+      limit = 10,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
 
+    // Build filter object for NGOs only
+    let filter = { role: 'ngo' };
+    
+    // Status filter
+    if (status === 'active') filter.isActive = true;
+    if (status === 'inactive') filter.isActive = false;
+    
+    // Search filter
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { 'organization.name': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Sort configuration
+    const sortConfig = {};
+    sortConfig[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    const ngos = await User.find(filter)
+      .select('-password')
+      .sort(sortConfig)
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await User.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: {
+        ngos,
+        totalPages: Math.ceil(total / limit),
+        currentPage: parseInt(page),
+        total,
+        hasNextPage: page < Math.ceil(total / limit),
+        hasPrevPage: page > 1
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching NGOs',
+      error: error.message
+    });
+  }
+};
 // @desc    Update user status
 // @route   PUT /api/admin/users/:id/status
 // @access  Private (Admin)

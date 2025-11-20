@@ -5,45 +5,90 @@ const Opportunity = require('../models/Opportunity');
 // @access  Public
 exports.getOpportunities = async (req, res) => {
   try {
-    const {
-      category,
-      location,
-      isRemote,
-      commitment,
-      skills,
-      page = 1,
-      limit = 10
-    } = req.query;
-
-    // Build filter object
-    let filter = { status: 'active' };
-    
-    if (category) filter.category = category;
-    if (isRemote) filter.isRemote = isRemote === 'true';
-    if (commitment) filter.commitment = commitment;
-    if (skills) filter.skillsRequired = { $in: skills.split(',') };
-
-    const opportunities = await Opportunity.find(filter)
-      .populate('organization', 'name email avatar')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    const total = await Opportunity.countDocuments(filter);
+    const opportunities = await Opportunity.find({ status: 'active' })
+      .populate('ngo_id', 'name email')
+      .sort({ createdAt: -1 });
 
     res.json({
       success: true,
       data: {
         opportunities,
-        totalPages: Math.ceil(total / limit),
-        currentPage: page,
-        total
+        total: opportunities.length,
+        totalPages: 1,
+        currentPage: 1
       }
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       message: 'Error fetching opportunities',
+      error: error.message
+    });
+  }
+};
+// @desc    Create new opportunity
+// @route   POST /api/opportunities
+// @access  Private/NGO
+exports.createOpportunity = async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      category,
+      skillsRequired,
+      location,
+      startDate,
+      endDate,
+      applicationDeadline,
+      maxVolunteers,
+      timeCommitment,
+      responsibilities,
+      benefits
+    } = req.body;
+
+    // Basic validation
+    if (!title || !description || !category || !location) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, description, category, and location are required'
+      });
+    }
+
+    // Create opportunity object
+    const opportunityData = {
+      title,
+      description,
+      category,
+      location,
+      ngo_id: req.user.id, // Assuming NGO is authenticated and user ID is set in req.user
+      status: 'pending' // Set to pending for admin approval
+    };
+
+    // Add optional fields if provided
+    if (skillsRequired) opportunityData.skillsRequired = skillsRequired;
+    if (startDate) opportunityData.startDate = startDate;
+    if (endDate) opportunityData.endDate = endDate;
+    if (applicationDeadline) opportunityData.applicationDeadline = applicationDeadline;
+    if (maxVolunteers) opportunityData.maxVolunteers = maxVolunteers;
+    if (timeCommitment) opportunityData.timeCommitment = timeCommitment;
+    if (responsibilities) opportunityData.responsibilities = responsibilities;
+    if (benefits) opportunityData.benefits = benefits;
+
+    const opportunity = await Opportunity.create(opportunityData);
+
+    // Populate NGO details in response
+    await opportunity.populate('ngo_id', 'name email');
+
+    res.status(201).json({
+      success: true,
+      message: 'Opportunity created successfully and submitted for approval',
+      data: opportunity
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error creating opportunity',
       error: error.message
     });
   }
@@ -55,8 +100,7 @@ exports.getOpportunities = async (req, res) => {
 exports.getOpportunity = async (req, res) => {
   try {
     const opportunity = await Opportunity.findById(req.params.id)
-      .populate('organization', 'name email avatar bio rating')
-      .populate('volunteersApplied.volunteer', 'name avatar rating');
+      .populate('ngo_id', 'name email');
 
     if (!opportunity) {
       return res.status(404).json({
@@ -67,7 +111,7 @@ exports.getOpportunity = async (req, res) => {
 
     res.json({
       success: true,
-      data: { opportunity }
+      data: opportunity
     });
   } catch (error) {
     res.status(500).json({
@@ -78,74 +122,5 @@ exports.getOpportunity = async (req, res) => {
   }
 };
 
-// @desc    Create opportunity
-// @route   POST /api/opportunities
-// @access  Private (Organization/Admin)
-exports.createOpportunity = async (req, res) => {
-  try {
-    req.body.organization = req.user.id;
-    
-    const opportunity = await Opportunity.create(req.body);
-
-    await opportunity.populate('organization', 'name email avatar');
-
-    res.status(201).json({
-      success: true,
-      message: 'Opportunity created successfully',
-      data: { opportunity }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error creating opportunity',
-      error: error.message
-    });
-  }
-};
-
-// @desc    Apply for opportunity
-// @route   POST /api/opportunities/:id/apply
-// @access  Private (Volunteer)
-exports.applyForOpportunity = async (req, res) => {
-  try {
-    const opportunity = await Opportunity.findById(req.params.id);
-
-    if (!opportunity) {
-      return res.status(404).json({
-        success: false,
-        message: 'Opportunity not found'
-      });
-    }
-
-    // Check if already applied
-    const alreadyApplied = opportunity.volunteersApplied.find(
-      application => application.volunteer.toString() === req.user.id
-    );
-
-    if (alreadyApplied) {
-      return res.status(400).json({
-        success: false,
-        message: 'Already applied for this opportunity'
-      });
-    }
-
-    // Add to applicants
-    opportunity.volunteersApplied.push({
-      volunteer: req.user.id,
-      status: 'pending'
-    });
-
-    await opportunity.save();
-
-    res.json({
-      success: true,
-      message: 'Applied for opportunity successfully'
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error applying for opportunity',
-      error: error.message
-    });
-  }
-};
+// Remove or comment out createOpportunity and applyForOpportunity for now
+// since they require authentication and more complex logic

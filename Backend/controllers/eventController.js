@@ -2,6 +2,23 @@ const EventBooking = require('../models/EventBooking');
 const User = require('../models/user');
 const VolunteerWork = require('../models/VolunteerWork');
 
+// Helper function to update volunteer rating
+const updateVolunteerRating = async (volunteerId) => {
+  const volunteerWorks = await VolunteerWork.find({ 
+    volunteer: volunteerId,
+    ratingByOrganization: { $exists: true, $ne: null }
+  });
+  
+  if (volunteerWorks.length > 0) {
+    const totalRating = volunteerWorks.reduce((sum, work) => sum + work.ratingByOrganization, 0);
+    const averageRating = totalRating / volunteerWorks.length;
+    
+    await User.findByIdAndUpdate(volunteerId, { 
+      rating: Math.round(averageRating * 10) / 10 
+    });
+  }
+};
+
 // @desc    Create event booking
 // @route   POST /api/events
 // @access  Private (Organization/Admin)
@@ -334,19 +351,96 @@ exports.completeVolunteerAssignment = async (req, res) => {
   }
 };
 
-// Helper function to update volunteer rating
-const updateVolunteerRating = async (volunteerId) => {
-  const volunteerWorks = await VolunteerWork.find({ 
-    volunteer: volunteerId,
-    ratingByOrganization: { $exists: true, $ne: null }
-  });
-  
-  if (volunteerWorks.length > 0) {
-    const totalRating = volunteerWorks.reduce((sum, work) => sum + work.ratingByOrganization, 0);
-    const averageRating = totalRating / volunteerWorks.length;
+// @desc    Get user's event bookings (for organizers)
+// @route   GET /api/events/my-bookings
+// @access  Private
+exports.getUserEventBookings = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status } = req.query;
     
-    await User.findByIdAndUpdate(volunteerId, { 
-      rating: Math.round(averageRating * 10) / 10 
+    let filter = { organizer: req.user.id };
+    if (status) filter.status = status;
+
+    const events = await EventBooking.find(filter)
+      .populate('assignedVolunteers.volunteer', 'name avatar rating skills')
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await EventBooking.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: {
+        events,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching your event bookings',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get single event booking
+// @route   GET /api/events/:id
+// @access  Private
+exports.getEventBooking = exports.getEvent;
+
+// @desc    Update event booking
+// @route   PUT /api/events/:id
+// @access  Private
+exports.updateEventBooking = exports.updateEvent;
+
+// @desc    Cancel event booking
+// @route   DELETE /api/events/:id
+// @access  Private
+exports.cancelEventBooking = async (req, res) => {
+  try {
+    const event = await EventBooking.findById(req.params.id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: 'Event not found'
+      });
+    }
+
+    // Check if user is event organizer or admin
+    if (event.organizer.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to cancel this event'
+      });
+    }
+
+    // Update event status to cancelled
+    event.status = 'cancelled';
+    await event.save();
+
+    // Update volunteer work records
+    await VolunteerWork.updateMany(
+      { event: event._id },
+      { 
+        status: 'cancelled',
+        cancellationReason: 'Event cancelled by organizer'
+      }
+    );
+
+    res.json({
+      success: true,
+      message: 'Event cancelled successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error cancelling event',
+      error: error.message
     });
   }
 };
