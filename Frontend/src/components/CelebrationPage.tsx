@@ -96,25 +96,25 @@ export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
   }, []);
 
   const fetchNGOs = async () => {
-    try {
-      // Try to get organizations (NGOs) from admin users endpoint
-      const ngosData = await api.admin.getNGOs();
-      const fetchedNGOs = ngosData.data?.users || ngosData.data || ngosData;
-      
-      if (fetchedNGOs && Array.isArray(fetchedNGOs) && fetchedNGOs.length > 0) {
-        setNgos(fetchedNGOs);
-      } else {
-        // Fallback to hardcoded NGOs if API returns empty or invalid data
-        setNgos(hardcodedNGOs);
-        console.log('Using hardcoded NGO data');
-      }
-    } catch (error) {
-      console.error('Failed to fetch NGOs, using hardcoded data:', error);
-      // Fallback to hardcoded NGOs on error
+  try {
+    // Try to get organizations from a public endpoint instead of admin
+    const ngosData = await api.admin.getNGOs(); // Use public NGO endpoint
+    const fetchedNGOs = ngosData.data?.users || ngosData.data || ngosData;
+    
+    if (fetchedNGOs && Array.isArray(fetchedNGOs) && fetchedNGOs.length > 0) {
+      setNgos(fetchedNGOs);
+    } else {
+      // Fallback to hardcoded NGOs if API returns empty or invalid data
       setNgos(hardcodedNGOs);
-      toast.info('Loaded NGO partners from available data');
+      console.log('Using hardcoded NGO data');
     }
-  };
+  } catch (error) {
+    console.error('Failed to fetch NGOs, using hardcoded data:', error);
+    // Fallback to hardcoded NGOs on error
+    setNgos(hardcodedNGOs);
+    toast.info('Loaded NGO partners from available data');
+  }
+};
 
   const eventTypes = [
     { value: 'birthday', label: 'Birthday', icon: Cake },
