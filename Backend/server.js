@@ -423,6 +423,31 @@ app.post('/api/debug/check-token', (req, res) => {
         database: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
       });
     });
+    app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: '🚀 Welcome to Sahay Microvolunteering Backend API!',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      auth: '/api/auth',
+      opportunities: '/api/opportunities', 
+      events: '/api/events',
+      health: '/api/health',
+      debug: '/api/debug/users'
+    },
+    documentation: 'Add your API docs link here'
+  });
+});
+
+// Your existing 404 handler - keep this
+app.use('*', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route ${req.originalUrl} not found`
+  });
+});
+
 
     // Test database route
     app.get('/api/test-db', async (req, res) => {
