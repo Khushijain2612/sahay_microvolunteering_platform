@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'; // ADD: useEffect
-import { Cake, Calendar, Users, Heart, Gift, PartyPopper } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Cake, Calendar, Users, Heart, Gift, PartyPopper, CheckCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -12,9 +12,8 @@ import {
   SelectValue,
 } from './ui/select';
 import { toast } from 'sonner';
-import { apiClient } from '../../lib/api'; // ADD: API client
+import { api, authHelper } from '@/lib/api';
 
-// ADD: Interface for backend NGO data
 interface NGO {
   _id: string;
   name: string;
@@ -35,6 +34,9 @@ export interface CelebrationBooking {
   message: string;
 }
 
+// Local storage key for celebrations
+const CELEBRATIONS_STORAGE_KEY = 'saved_celebrations';
+
 export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
   const [formData, setFormData] = useState<CelebrationBooking>({
     eventType: '',
@@ -45,24 +47,74 @@ export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
     message: '',
   });
 
-  // ADD: State for backend NGOs
   const [ngos, setNgos] = useState<NGO[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  // ADD: Fetch NGOs from backend
+  // Hardcoded NGO data
+  const hardcodedNGOs: NGO[] = [
+    {
+      _id: '1',
+      name: 'Hope for Children Foundation',
+      description: 'Dedicated to improving the lives of underprivileged children through education and healthcare.',
+      category: ['Children', 'Education', 'Healthcare']
+    },
+    {
+      _id: '2',
+      name: 'Green Earth Alliance',
+      description: 'Working towards environmental conservation and sustainable development practices.',
+      category: ['Environment', 'Conservation', 'Sustainability']
+    },
+    {
+      _id: '3',
+      name: 'Community Health Initiative',
+      description: 'Providing healthcare services and medical support to underserved communities.',
+      category: ['Healthcare', 'Medical', 'Community']
+    },
+    {
+      _id: '4',
+      name: 'Elder Care Support Network',
+      description: 'Supporting senior citizens with healthcare, companionship, and essential services.',
+      category: ['Elderly', 'Healthcare', 'Community']
+    },
+    {
+      _id: '5',
+      name: 'Education for All Trust',
+      description: 'Promoting literacy and education access for children in rural areas.',
+      category: ['Education', 'Children', 'Literacy']
+    },
+    {
+      _id: '6',
+      name: 'Animal Welfare Society',
+      description: 'Rescuing and caring for stray and abandoned animals in the community.',
+      category: ['Animals', 'Rescue', 'Welfare']
+    }
+  ];
+
   useEffect(() => {
     fetchNGOs();
   }, []);
 
   const fetchNGOs = async () => {
-  try {
-    const ngosData: any = await apiClient.request('/ngos');
-    setNgos(ngosData);
-  } catch (error) {
-    console.error('Failed to fetch NGOs:', error);
-    toast.error('Failed to load NGO partners');
-  }
-};
+    try {
+      // Try to get organizations (NGOs) from admin users endpoint
+      const ngosData = await api.admin.getNGOs();
+      const fetchedNGOs = ngosData.data?.users || ngosData.data || ngosData;
+      
+      if (fetchedNGOs && Array.isArray(fetchedNGOs) && fetchedNGOs.length > 0) {
+        setNgos(fetchedNGOs);
+      } else {
+        // Fallback to hardcoded NGOs if API returns empty or invalid data
+        setNgos(hardcodedNGOs);
+        console.log('Using hardcoded NGO data');
+      }
+    } catch (error) {
+      console.error('Failed to fetch NGOs, using hardcoded data:', error);
+      // Fallback to hardcoded NGOs on error
+      setNgos(hardcodedNGOs);
+      toast.info('Loaded NGO partners from available data');
+    }
+  };
 
   const eventTypes = [
     { value: 'birthday', label: 'Birthday', icon: Cake },
@@ -71,8 +123,6 @@ export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
     { value: 'corporate', label: 'Corporate Event', icon: Users },
     { value: 'memorial', label: 'Memorial', icon: Gift },
   ];
-
-  // REMOVE: Hardcoded NGOs array since we're fetching from backend
 
   const celebrationIdeas = [
     {
@@ -92,52 +142,154 @@ export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
     },
   ];
 
-  // UPDATE: Handle form submission with backend API
+  // Save celebration to local storage
+  const saveCelebrationToLocalStorage = (celebrationData: CelebrationBooking & { id: string; createdAt: string }) => {
+    try {
+      const existingCelebrations = JSON.parse(localStorage.getItem(CELEBRATIONS_STORAGE_KEY) || '[]');
+      const updatedCelebrations = [...existingCelebrations, celebrationData];
+      localStorage.setItem(CELEBRATIONS_STORAGE_KEY, JSON.stringify(updatedCelebrations));
+      return true;
+    } catch (error) {
+      console.error('Failed to save to local storage:', error);
+      return false;
+    }
+  };
+
+  // Try to save via API first, fallback to local storage
+  const saveCelebrationToAPI = async (celebrationData: any) => {
+    try {
+      // Try different possible endpoints
+      const endpoints = [
+        '/api/events',
+        '/api/celebrations',
+        '/api/event/create',
+        '/api/celebration/create'
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          console.log(`Trying endpoint: ${endpoint}`);
+          const response = await fetch(`https://sahay-microvolunteering-0jhc.onrender.com${endpoint}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(celebrationData),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log(`Successfully saved to endpoint: ${endpoint}`, result);
+            return { success: true, endpoint };
+          }
+        } catch (error) {
+          console.log(`Endpoint ${endpoint} failed:`, error);
+          continue;
+        }
+      }
+
+      // If all API endpoints fail, fallback to local storage
+      throw new Error('No working API endpoint found');
+      
+    } catch (error) {
+      console.log('All API endpoints failed, falling back to local storage');
+      return { success: false, error };
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      eventType: '',
+      date: '',
+      ngo: '',
+      people: 1,
+      name: '',
+      message: '',
+    });
+    setSelectKey(prev => prev + 1);
+  };
+
+  const [selectKey, setSelectKey] = useState(0);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Find the selected NGO ID
       const selectedNGO = ngos.find(ngo => ngo.name === formData.ngo);
       
       if (!selectedNGO) {
         toast.error('Please select a valid NGO partner');
+        setLoading(false);
         return;
       }
 
-      // Send to backend
-      await apiClient.request('/celebrations', {
-        method: 'POST',
-        body: JSON.stringify({
-          event_type: formData.eventType, // Match backend field name
-          date: formData.date,
-          ngo_id: selectedNGO._id, // Use NGO ID instead of name
-          number_of_people: formData.people, // Match backend field name
-          event_name: formData.name, // Match backend field name
-          message: formData.message,
-          // ADD: User ID will be handled by backend auth
-        }),
-      });
+      const celebrationData = {
+        eventName: `${formData.eventType} Celebration - ${formData.name}`,
+        eventType: formData.eventType,
+        date: formData.date,
+        organizer: selectedNGO._id,
+        volunteersRequired: formData.people,
+        description: formData.message,
+        location: {
+          address: "To be determined with NGO"
+        },
+        duration: 2,
+        contactPerson: {
+          name: formData.name,
+          email: "user@example.com",
+          phone: "0000000000"
+        },
+        ngoName: selectedNGO.name,
+        ngoCategory: selectedNGO.category
+      };
 
-      // Call the original prop function if needed
+      console.log('Submitting celebration data:', celebrationData);
+
+      // Try to save via API first
+      const apiResult = await saveCelebrationToAPI(celebrationData);
+
+      if (apiResult.success) {
+        // Successfully saved to API
+        toast.success(`Celebration event booked successfully! Saved to database via ${apiResult.endpoint}`);
+      } else {
+        // Fallback to local storage
+        const localData = {
+          ...formData,
+          id: Date.now().toString(),
+          createdAt: new Date().toISOString(),
+          ngoId: selectedNGO._id
+        };
+
+        const localSaveResult = saveCelebrationToLocalStorage(localData);
+        
+        if (localSaveResult) {
+          toast.success('Celebration event booked successfully! (Saved locally)');
+        } else {
+          toast.error('Failed to save celebration data');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Call the parent callback
       onBookCelebration(formData);
       
-      toast.success('Celebration event booked successfully!');
+      // Show success message
+      setShowSuccess(true);
       
-      // Reset form
-      setFormData({
-        eventType: '',
-        date: '',
-        ngo: '',
-        people: 1,
-        name: '',
-        message: '',
-      });
+      // Reset form fields
+      resetForm();
+
+      // Hide success message after 5 seconds
+      setTimeout(() => {
+        setShowSuccess(false);
+      }, 5000);
 
     } catch (error: any) {
       console.error('Booking failed:', error);
-      toast.error(error.message || 'Failed to book celebration event');
+      const errorMessage = error.message || 'Failed to book celebration event';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -146,6 +298,32 @@ export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Success Message */}
+        {showSuccess && (
+          <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right duration-300">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg max-w-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-green-800 font-medium">Event Booked Successfully!</h4>
+                  <p className="text-green-600 text-sm mt-1">
+                    Your celebration event has been booked. We'll contact you soon with more details.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSuccess(false)}
+                  className="flex-shrink-0 text-green-400 hover:text-green-600 transition-colors"
+                >
+                  <span className="sr-only">Close</span>
+                  <span aria-hidden="true">×</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-12">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full mb-4">
@@ -159,7 +337,7 @@ export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
         </div>
 
         {/* Celebration Ideas */}
-        <div className="grid md:grid-cols-3 gap-8 mb-12 ">
+        <div className="grid md:grid-cols-3 gap-8 mb-12">
           {celebrationIdeas.map((idea, index) => (
             <div
               key={index}
@@ -180,7 +358,7 @@ export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
 
         {/* Booking Form */}
         <div className="max-w-3xl mx-auto">
-          <div className=" rounded-2xl shadow-lg p-8  bg-white border border-gray-300 text-gray-600">
+          <div className="rounded-2xl shadow-lg p-8 bg-white border border-gray-300 text-gray-600">
             <h2 className="text-gray-900 mb-6">Book Your Celebration Event</h2>
 
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -188,7 +366,8 @@ export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
               <div>
                 <Label htmlFor="eventType">Event Type *</Label>
                 <Select
-                  value={formData.eventType || ""}
+                  key={`eventType-${selectKey}`}
+                  value={formData.eventType}
                   onValueChange={(value: string) =>
                     setFormData({ ...formData, eventType: value })
                   }
@@ -246,18 +425,19 @@ export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
                     placeholder="How many people?"
                     value={formData.people}
                     onChange={(e) =>
-                      setFormData({ ...formData, people: parseInt(e.target.value) })
+                      setFormData({ ...formData, people: parseInt(e.target.value) || 1 })
                     }
                     required
                   />
                 </div>
               </div>
 
-              {/* NGO Selection - UPDATE: Use backend NGOs */}
+              {/* NGO Selection */}
               <div>
                 <Label htmlFor="ngo">Choose NGO Partner *</Label>
                 <Select 
-                  value={formData.ngo || ""}
+                  key={`ngo-${selectKey}`}
+                  value={formData.ngo}
                   onValueChange={(value: string) =>
                     setFormData({ ...formData, ngo: value })
                   }
@@ -269,14 +449,19 @@ export function CelebrationPage({ onBookCelebration }: CelebrationPageProps) {
                   <SelectContent className='text-black bg-white'>
                     {ngos.map((ngo) => (
                       <SelectItem key={ngo._id} value={ngo.name}>
-                        {ngo.name}
+                        <div className="flex flex-col">
+                          <span className="font-medium">{ngo.name}</span>
+                          <span className="text-xs text-gray-500">
+                            {ngo.category.join(', ')}
+                          </span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {ngos.length === 0 && (
-                  <p className="text-sm text-gray-500 mt-1">Loading NGO partners...</p>
-                )}
+                <p className="text-sm text-gray-500 mt-1">
+                  {ngos.length} NGO partners available
+                </p>
               </div>
 
               {/* Message */}

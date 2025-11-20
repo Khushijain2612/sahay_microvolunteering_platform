@@ -1,27 +1,234 @@
-// app/test/page.tsx
-'use client';
-import { useEffect } from 'react';
-import { apiClient } from '../../lib/api';
+import { useState, useEffect } from 'react';
+import { Clock, MapPin, Users, Calendar, Filter } from 'lucide-react';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { api, authHelper } from '@/lib/api';
 
-export default function TestPage() {
+interface Opportunity {
+  _id: string; 
+  title: string;
+  organization: {
+    name: string; 
+  };
+  duration: number; 
+  date: string;
+  location: string;
+  skillsRequired: string[];
+  volunteersRequired: number; 
+  volunteersApplied: any[]; 
+  description: string;
+}
+
+interface OpportunitiesPageProps {
+  onBookSlot: (opportunityId: string) => void;
+}
+
+export function OpportunitiesPage({ onBookSlot }: OpportunitiesPageProps) {
+  const [selectedDuration, setSelectedDuration] = useState<string>('all');
+  const [selectedSkill, setSelectedSkill] = useState<string>('all');
+  const [selectedNGO, setSelectedNGO] = useState<string>('all');
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    testBackendConnection();
+    fetchOpportunities();
   }, []);
 
-  const testBackendConnection = async () => {
+  const fetchOpportunities = async () => {
     try {
-      console.log('Testing backend connection...');
-      const opportunities = await apiClient.getOpportunities();
-      console.log('Backend connection successful!', opportunities);
+      setLoading(true);
+      const data = await api.opportunities.getAll();
+      setOpportunities(data.data?.opportunities || data.data || data);
     } catch (error) {
-      console.error('Backend connection failed:', error);
+      console.error('Failed to fetch opportunities');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const filterOpportunities = () => {
+    return opportunities.filter((opp) => {
+      const durationMatch = selectedDuration === 'all' || opp.duration.toString().includes(selectedDuration);
+      const skillMatch = selectedSkill === 'all' || opp.skillsRequired.includes(selectedSkill); 
+      const ngoMatch = selectedNGO === 'all' || opp.organization.name === selectedNGO;
+      return durationMatch && skillMatch && ngoMatch;
+    });
+  };
+
+  const filteredOpportunities = filterOpportunities();
+
+  // Get unique NGOs for filter
+  const uniqueNGOs = Array.from(new Set(opportunities.map(opp => opp.organization.name)));
+  // Get unique skills for filter
+  const allSkills = opportunities.flatMap(opp => opp.skillsRequired);
+  const uniqueSkills = Array.from(new Set(allSkills));
+
   return (
-    <div className="p-8">
-      <h1>Testing Backend Connection</h1>
-      <p>Check browser console for connection status</p>
+    <div className="min-h-screen bg-gray-50 py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-gray-900 mb-4">Volunteer Opportunities</h1>
+          <p className="text-gray-600">
+            Find the perfect volunteering opportunity that fits your schedule
+          </p>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white p-6 rounded-xl shadow-sm mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Filter className="w-5 h-5 text-gray-600" />
+            <h3 className="text-gray-900">Filter Opportunities</h3>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm text-gray-600 mb-2 block">Duration</label>
+              <Select value={selectedDuration} onValueChange={setSelectedDuration} >
+                <SelectTrigger className="bg-white border border-gray-300 text-gray-600">
+                  <SelectValue placeholder="Select duration" className="cursor-pointer" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border border-gray-300 text-gray-600">
+                  <SelectItem value="all">All Durations</SelectItem>
+                  <SelectItem value="1">1 Hour</SelectItem>
+                  <SelectItem value="2">2 Hours</SelectItem>
+                  <SelectItem value="3">3 Hours</SelectItem>
+                  <SelectItem value="4">4+ Hours</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-600 mb-2 block">Skill Type</label>
+              <Select value={selectedSkill} onValueChange={setSelectedSkill}>
+                <SelectTrigger className="bg-white border border-gray-300 text-gray-600">
+                  <SelectValue placeholder="Select skill" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border border-gray-300 text-gray-600">
+                  <SelectItem value="all">All Skills</SelectItem>
+                  {uniqueSkills.map(skill => (
+                    <SelectItem key={skill} value={skill}>{skill}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-600 mb-2 block">NGO</label>
+              <Select value={selectedNGO} onValueChange={setSelectedNGO}>
+                <SelectTrigger className="bg-white border border-gray-300 text-gray-600">
+                  <SelectValue placeholder="Select NGO" />
+                </SelectTrigger>
+                <SelectContent className="bg-white border border-gray-300 text-gray-600">
+                  <SelectItem value="all">All NGOs</SelectItem>
+                  {uniqueNGOs.map(ngo => (
+                    <SelectItem key={ngo} value={ngo}>{ngo}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        {/* Opportunities Grid */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredOpportunities.map((opportunity) => {
+            const filledSpots = opportunity.volunteersApplied?.length || 0;
+            const availableSpots = opportunity.volunteersRequired - filledSpots;
+            
+            return (
+              <div
+                key={opportunity._id}
+                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+              >
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="text-gray-900">{opportunity.title}</h3>
+                    {availableSpots <= 5 && availableSpots > 0 && (
+                      <Badge variant="destructive" className="text-xs">
+                        {availableSpots} spots left
+                      </Badge>
+                    )}
+                    {availableSpots === 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        Fully Booked
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="text-sm text-blue-600 mb-4">{opportunity.organization.name}</div>
+
+                  <p className="text-sm text-gray-600 mb-4">{opportunity.description}</p>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Clock className="w-4 h-4" />
+                      <span>{opportunity.duration} hours</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar className="w-4 h-4" />
+                      <span>{new Date(opportunity.date).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <MapPin className="w-4 h-4" />
+                      <span>{opportunity.location}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Users className="w-4 h-4" />
+                      <span>{availableSpots} spots available</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {opportunity.skillsRequired.map((skill, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  <Button
+                    className="w-full cursor-pointer"
+                    onClick={() => onBookSlot(opportunity._id)}
+                    disabled={availableSpots === 0}
+                  >
+                    {availableSpots === 0 ? 'Fully Booked' : 'Book Slot'}
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {filteredOpportunities.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <p className="text-gray-600">No opportunities found matching your filters.</p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => {
+                setSelectedDuration('all');
+                setSelectedSkill('all');
+                setSelectedNGO('all');
+              }}
+            >
+              Clear Filters
+            </Button>
+          </div>
+        )}
+
+        {loading && (
+          <div className="text-center py-12">
+            <p className="text-gray-600">Loading opportunities...</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

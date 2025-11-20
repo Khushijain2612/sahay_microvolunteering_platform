@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import { Button } from './ui/button';
-import { apiClient } from '../../lib/api';
+import { api, authHelper } from '@/lib/api';
 
 interface NavigationProps {
   onLoginClick: () => void;
@@ -30,16 +30,16 @@ export function Navigation({ onLoginClick, onNavigate, currentPage, isLoggedIn, 
   }, [isLoggedIn]);
 
   const fetchUserProfile = async () => {
-  try {
-    const userData: any = await apiClient.request('/users/me');
-    setUser(userData);
-  } catch (error) {
-    console.error('Failed to fetch user profile');
-  }
-};
+    try {
+      const userData = await api.auth.getMe();
+      setUser(userData.data?.user || userData.data || userData);
+    } catch (error) {
+      console.error('Failed to fetch user profile');
+    }
+  };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    authHelper.removeToken();
     setUser(null);
     onLogout();
   };
@@ -51,7 +51,8 @@ export function Navigation({ onLoginClick, onNavigate, currentPage, isLoggedIn, 
     { name: 'Dashboard', id: 'dashboard' },
   ];
 
-  if (user?.role === 'ngo_admin') {
+  // Show Admin link for admin users and organization users
+  if (user?.role === 'admin' || user?.role === 'organization') {
     navItems.push({ name: 'Admin', id: 'admin' });
   }
 

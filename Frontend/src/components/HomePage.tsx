@@ -1,14 +1,13 @@
 import { ArrowRight, Clock, Award, Users, Heart, CheckCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { ImageWithFallback } from './Resources/ImageWithFallback';
-import { useState, useEffect } from 'react'; // ADD: useEffect
-import { apiClient } from '@/lib/api'; // ADD: API client
+import { useState, useEffect } from 'react';
+import { api, authHelper } from '@/lib/api';
 
 interface HomePageProps {
   onNavigate: (page: string) => void;
 }
 
-// ADD: Interface for backend stats
 interface PlatformStats {
   total_volunteers: number;
   total_ngos: number;
@@ -16,7 +15,6 @@ interface PlatformStats {
   completed_tasks_today: number;
 }
 
-// ADD: Interface for testimonials from backend
 interface Testimonial {
   _id: string;
   user_id: {
@@ -30,7 +28,6 @@ interface Testimonial {
 }
 
 export function HomePage({ onNavigate }: HomePageProps) {
-  // ADD: State for backend data
   const [platformStats, setPlatformStats] = useState<PlatformStats>({
     total_volunteers: 0,
     total_ngos: 0,
@@ -39,37 +36,72 @@ export function HomePage({ onNavigate }: HomePageProps) {
   });
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // ADD: Fetch platform stats and testimonials
-  useEffect(() => {
-    fetchHomePageData();
-  }, []);
+  // Fixed useEffect hook
+  // useEffect(() => {
+  //   const fetchHomePageData = async () => {
+  //     try {
+  //       setLoading(true);
+  //       setError('');
+  //       const user = authHelper.getCurrentUser();
+        
+  //       // Fetch public platform stats (not admin stats)
+  //       try {
+  //         const stats = await api.getPlatformStats(); // This should be a public endpoint
+  //         setPlatformStats(stats);
+  //       } catch (statsError: any) {
+  //         // If platform stats fail, use fallback data but don't block the page
+  //         console.warn('Could not load platform stats:', statsError.message);
+  //         // Keep the default/fallback stats that are already set
+  //       }
+        
+  //       // Fetch testimonials
+  //       try {
+  //         const testimonialsData = await api.getTestimonials();
+  //         setTestimonials(testimonialsData);
+  //       } catch (testimonialError: any) {
+  //         console.warn('Could not load testimonials:', testimonialError.message);
+  //         // testimonials array remains empty, will show fallback content
+  //       }
+        
+  //     } catch (error: any) {
+  //       console.error('Error fetching homepage data:', error);
+  //       setError('Failed to load some data, but you can still browse opportunities');
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
 
-  const fetchHomePageData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch platform statistics
-      const statsData = await apiClient.request('/stats/platform');
-      setPlatformStats(statsData);
-      
-      // Fetch featured testimonials
-      const testimonialsData = await apiClient.request('/reviews/featured');
-      setTestimonials(testimonialsDataa);
-      
-    } catch (error) {
-      console.error('Failed to fetch homepage data:', error);
-      // Fallback to default data
-      setPlatformStats({
-        total_volunteers: 10000,
-        total_ngos: 500,
-        total_hours: 50000,
-        completed_tasks_today: 234
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  //   fetchHomePageData();
+  // }, []);
+
+  // Alternative simplified version if you're still having issues:
+
+  // useEffect(() => {
+  //   const fetchHomePageData = async () => {
+  //     try {
+  //       setLoading(true);
+        
+  //       // Try to get public stats - this should NOT require admin privileges
+  //       const publicStats = await api.getPublicStats();
+  //       setPlatformStats(publicStats);
+        
+  //       // Try to get testimonials
+  //       const testimonialsData = await api.getTestimonials();
+  //       setTestimonials(testimonialsData);
+        
+  //     } catch (error) {
+  //       console.log('Some homepage data unavailable:', error);
+  //       // Continue with default values
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //   fetchHomePageData();
+  // }, []);
+  
 
   const features = [
     {
@@ -135,7 +167,6 @@ export function HomePage({ onNavigate }: HomePageProps) {
                   Celebrate with Us
                 </Button>
               </div>
-              {/* UPDATE: Use real platform stats */}
               <div className="flex items-center gap-8 pt-4">
                 <div>
                   <div className="text-blue-600">
@@ -163,7 +194,6 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 alt="Volunteers working together"
                 className="rounded-2xl shadow-2xl w-full"
               />
-              {/* UPDATE: Use real completed tasks count */}
               <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-xl shadow-lg hidden md:block">
                 <div className="flex items-center gap-4">
                   <div className="bg-green-100 p-3 rounded-full">
@@ -237,7 +267,7 @@ export function HomePage({ onNavigate }: HomePageProps) {
         </div>
       </section>
 
-      {/* Testimonials - UPDATE: Use real testimonials from backend */}
+      {/* Testimonials */}
       <section className="py-16 md:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
@@ -274,7 +304,6 @@ export function HomePage({ onNavigate }: HomePageProps) {
                 </div>
               </div>
             ))}
-            {/* Fallback if no testimonials from backend */}
             {testimonials.length === 0 && (
               <>
                 <div className="bg-gradient-to-br from-blue-50 to-green-50 p-8 rounded-2xl">

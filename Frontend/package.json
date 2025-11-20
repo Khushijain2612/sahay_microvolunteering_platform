@@ -59,10 +59,11 @@
             "typescript": "^5.9.3",
             "vite": "6.3.5"
       },
-      "scripts": {
-            "dev": "next dev",
-            "build": "next build",
-            "start": "next start",
-            "lint": "next lint"
-      }
+      
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  }
+
 }

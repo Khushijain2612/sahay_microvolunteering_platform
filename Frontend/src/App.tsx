@@ -6,16 +6,10 @@ import { CelebrationPage } from './components/CelebrationPage';
 import { VolunteerDashboard } from './components/VolunteerDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { LoginModal } from './components/LoginModal';
-import { apiClient } from '../lib/api';
+import { api, authHelper } from '../lib/api';
 
 // CHANGE: Make Page type match what components expect
 type Page = 'home' | 'opportunities' | 'celebration' | 'dashboard' | 'admin';
-// type User = {
-//   id: number;
-//   name: string;
-//   email: string;
-//   role: string;
-// };
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('home');
@@ -28,30 +22,36 @@ export default function App() {
   }, []);
 
   const checkAuthStatus = () => {
-    const token = localStorage.getItem('token');
-    if (token) {
+    if (authHelper.isLoggedIn()) {
       setIsLoggedIn(true);
       fetchUserProfile();
     }
   };
 
-const fetchUserProfile = async () => {
-  try {
-    const userData = await apiClient.request('/users/me');
-    setUser(userData as any); // or userData as User if you define the type
-  } catch (error) {
-    handleLogout();
-  }
-};
+  const fetchUserProfile = async () => {
+    try {
+      const userData = await api.auth.getProfile();
+      setUser(userData as any);
+    } catch (error) {
+      handleLogout();
+    }
+  };
 
-  const handleLogin = (email: string, role: string) => {
-    setIsLoggedIn(true);
-    setShowLoginModal(false);
-    fetchUserProfile();
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      const result = await api.auth.login(email, password);
+      authHelper.saveToken(result.token);
+      setIsLoggedIn(true);
+      setShowLoginModal(false);
+      setUser(result.user);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    authHelper.removeToken();
     setIsLoggedIn(false);
     setUser(null);
     setCurrentPage('home');
@@ -64,7 +64,8 @@ const fetchUserProfile = async () => {
     }
 
     try {
-      await apiClient.createBooking(opportunityId);
+      // Using events API since opportunities booking is commented out in backend
+      await api.events.create({ opportunityId });
       alert('Successfully booked!');
     } catch (error: any) {
       alert(error.message || 'Booking failed');
@@ -78,10 +79,7 @@ const fetchUserProfile = async () => {
     }
 
     try {
-      await apiClient.request('/celebrations', {
-        method: 'POST',
-        body: JSON.stringify(celebrationData),
-      });
+      await api.events.create(celebrationData);
       alert('Celebration booked successfully!');
     } catch (error: any) {
       alert(error.message || 'Failed to book celebration');

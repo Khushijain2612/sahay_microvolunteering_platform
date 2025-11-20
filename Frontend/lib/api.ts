@@ -1,224 +1,395 @@
+// // Mock API client for testing
+// const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+// async function apiCall(endpoint: string, options: any = {}) {
+//   const url = `${API_URL}${endpoint}`;
+//   const token = localStorage.getItem('token');
+  
+//   const headers = {
+//     'Content-Type': 'application/json',
+//     ...(token && { 'Authorization': `Bearer ${token}` }),
+//     ...options.headers,
+//   };
+
+//   try {
+//     const response = await fetch(url, {
+//       ...options,
+//       headers,
+//     });
+
+//     const data = await response.json();
+    
+//     if (!response.ok) {
+//       throw new Error(data.message || 'Something went wrong');
+//     }
+    
+//     return data;
+//   } catch (error) {
+//     console.error('API Error:', error);
+//     throw error;
+//   }
+// }
+
+// export const api = {
+//   auth: {
+//     login: (email: string, password: string) => 
+//       apiCall('/auth/login', {
+//         method: 'POST',
+//         body: JSON.stringify({ email, password }),
+//       }),
+
+//     register: (userData: any) =>
+//       apiCall('/auth/register', {
+//         method: 'POST',
+//         body: JSON.stringify(userData),
+//       }),
+
+//     getMe: () => apiCall('/auth/me'),
+//   },
+
+//   events: {
+//     getOne: (id: string) => apiCall(`/events/${id}`),
+//     create: (eventData: any) =>
+//       apiCall('/events', {
+//         method: 'POST',
+//         body: JSON.stringify(eventData),
+//       }),
+//     update: (id: string, eventData: any) =>
+//       apiCall(`/events/${id}`, {
+//         method: 'PUT',
+//         body: JSON.stringify(eventData),
+//       }),
+//     delete: (id: string) =>
+//       apiCall(`/events/${id}`, { method: 'DELETE' }),
+//     getMyBookings: () => apiCall('/events/my-bookings'),
+//   },
+
+//   opportunities: {
+//     getAll: () => apiCall('/opportunities'),
+//     getOne: (id: string) => apiCall(`/opportunities/${id}`),
+//     create: (opportunityData: any) =>
+//       apiCall('/opportunities/create', {
+//         method: 'POST',
+//         body: JSON.stringify(opportunityData),
+//       }),
+//   },
+
+//   volunteer: {
+//     getDashboard: () => apiCall('/volunteer/dashboard'),
+//     getWorkHistory: () => apiCall('/volunteer//work/${workId}/proof'),
+//     getBookedOpportunities: () => apiCall('/volunteer//events'),
+//   },
+
+//   admin: {
+//   getDashboardStats: () => apiCall('/admin/stats'),
+//   getVolunteers: (user:string) => apiCall('/admin/users'), // Maps to users endpoint
+//   getEventBookings: () => apiCall('/admin/opportunities/review'), // Maps to opportunities review
+//    getNGOs: (params?: any) => 
+//       apiCall('/admin/users', { params: { ...params, role: 'ngo' } }),
+//   updateEventBookingStatus: (id: string, statusData: any) =>
+//     apiCall(`/admin/opportunities/${id}/review`, { // Maps to opportunity review
+//       method: 'PUT',
+//       body: JSON.stringify(statusData),
+//     }),
+
+//     reviewVolunteerWork: (id: string, reviewData: any) =>
+//       apiCall(`/admin/opportunities/${id}/review`, {
+//         method: 'PUT',
+//         body: JSON.stringify(reviewData),
+//       }),
+//   },
+// };
+
+// export const authHelper = {
+//   saveToken: (token: string) => localStorage.setItem('token', token),
+//   getToken: () => localStorage.getItem('token'),
+//   removeToken: () => localStorage.removeItem('token'),
+//   isLoggedIn: () => !!localStorage.getItem('token'),
+// };
 // Mock API client for testing
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = 'https://sahay-microvolunteering-0jhc.onrender.com/api';
 
-// Mock data
-const mockUsers = [
-  {
-    _id: '1',
-    name: 'John Doe',
-    email: 'john@example.com',
-    role: 'volunteer',
-    total_hours: 25,
-    badge: 'silver',
-    rating: 4.8,
-    skills: ['Teaching', 'Communication']
-  }
-];
+async function apiCall(endpoint: string, options: any = {}) {
+  const url = `${API_URL}${endpoint}`;
+  const token = localStorage.getItem('token');
+  
+  console.log('🔗 API Call to:', url);
+  console.log('📦 Request Body:', options.body ? JSON.parse(options.body) : 'No body');
+  console.log('⚙️ Request Method:', options.method || 'GET');
 
-const mockOpportunities = [
-  {
-    _id: '1',
-    title: 'Food Distribution Support',
-    description: 'Help distribute food packages to families in need',
-    ngo_id: {
-      _id: '1',
-      name: 'City Food Bank',
-      logo_url: '',
-      verified: true
-    },
-    duration_hours: 2,
-    date: '2024-12-05',
-    location: {
-      address: 'Downtown Center',
-      type: 'onsite'
-    },
-    skills_required: ['Physical Work', 'Communication'],
-    total_spots: 8,
-    filled_spots: 3,
-    status: 'active'
-  },
-  {
-    _id: '2',
-    title: 'Animal Shelter Care',
-    description: 'Assist with feeding and cleaning shelter animals',
-    ngo_id: {
-      _id: '2',
-      name: 'Happy Paws Shelter', 
-      logo_url: '',
-      verified: true
-    },
-    duration_hours: 3,
-    date: '2024-12-06',
-    location: {
-      address: 'West Side Shelter',
-      type: 'onsite'
-    },
-    skills_required: ['Animal Care', 'Patience'],
-    total_spots: 4,
-    filled_spots: 2,
-    status: 'active'
-  }
-];
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` }),
+    ...options.headers,
+  };
 
-const mockNGOs = [
-  {
-    _id: '1',
-    name: 'City Food Bank',
-    description: 'Providing meals to underprivileged communities',
-    email: 'contact@cityfoodbank.org',
-    category: ['food-security'],
-    verified: true
-  },
-  {
-    _id: '2',
-    name: 'Happy Paws Shelter',
-    description: 'Rescuing and rehabilitating stray animals', 
-    email: 'info@happypaws.org',
-    category: ['animal-welfare'],
-    verified: true
-  }
-];
-
-// Mock API client
-export const apiClient = {
-  async request(endpoint: string, options: RequestInit = {}) {
-    console.log(`📡 Mock API Call: ${endpoint}`, options);
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Handle different endpoints
-    switch (endpoint) {
-      case '/auth/login':
-        if (options.method === 'POST') {
-          const body = JSON.parse(options.body as string);
-          if (body.password === 'password') {
-            return {
-              token: 'mock-jwt-token',
-              user: {
-                id: '1',
-                email: body.email,
-                name: 'John Doe',
-                role: body.role || 'volunteer'
-              }
-            };
-          }
-          throw new Error('Invalid credentials');
-        }
-        break;
-        
-      case '/auth/register':
-        if (options.method === 'POST') {
-          const body = JSON.parse(options.body as string);
-          return {
-            token: 'mock-jwt-token', 
-            user: {
-              id: '2',
-              email: body.email,
-              name: body.name,
-              role: body.role || 'volunteer'
-            }
-          };
-        }
-        break;
-        
-      case '/users/me':
-        return mockUsers[0];
-        
-      case '/opportunities':
-        return {
-          opportunities: mockOpportunities,
-          total: mockOpportunities.length
-        };
-        
-      case '/opportunities/ngo':
-        return mockOpportunities;
-        
-      case '/bookings/user':
-        return [{
-          _id: '1',
-          opportunity_id: mockOpportunities[0],
-          status: 'confirmed',
-          hours_completed: 2,
-          rating: 5
-        }];
-        
-      case '/bookings/pending':
-        return [];
-        
-      case '/ngos':
-        return mockNGOs;
-        
-      case '/stats/platform':
-        return {
-          total_volunteers: 1250,
-          total_ngos: 45, 
-          total_hours: 12500,
-          completed_tasks_today: 28
-        };
-        
-      case '/reviews/featured':
-        return [{
-          _id: '1',
-          user_id: {
-            name: 'Sarah Johnson',
-            profile_image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100'
-          },
-          review_text: 'Sahay made it so easy to fit volunteering into my busy schedule!',
-          rating: 5,
-          total_hours: 45
-        }];
-        
-      case '/admin/volunteers':
-        return mockUsers;
-        
-      default:
-        // For POST requests (bookings, celebrations, etc.)
-        if (options.method === 'POST') {
-          return { 
-            success: true, 
-            message: 'Mock operation successful',
-            id: 'mock-id-' + Date.now()
-          };
-        }
-        throw new Error(`Mock API endpoint not found: ${endpoint}`);
-    }
-  },
-
-  async login(email: string, password: string) {
-    const data: any = await this.request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
+  try {
+    console.log('🔄 Making fetch request...');
+    const response = await fetch(url, {
+      ...options,
+      headers,
     });
+
+    console.log('📡 Response Status:', response.status);
+    console.log('📡 Response OK:', response.ok);
+    console.log('📡 Response Headers:', Object.fromEntries(response.headers.entries()));
     
-    if (data.token) {
-      localStorage.setItem('token', data.token);
+    // Get the response text first to see what we're dealing with
+    const responseText = await response.text();
+    console.log('📄 Raw Response Text:', responseText);
+    
+    if (!response.ok) {
+      console.error('❌ Response not OK!');
+      let errorData;
+      try {
+        errorData = responseText ? JSON.parse(responseText) : { message: `HTTP ${response.status}` };
+      } catch (e) {
+        errorData = { message: responseText || `HTTP ${response.status}` };
+      }
+      console.error('❌ Error Data:', errorData);
+      throw new Error(errorData.message || `HTTP ${response.status}`);
+    }
+
+    // Try to parse the response as JSON
+    let data;
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+      console.log('✅ Parsed Response Data:', data);
+    } catch (parseError) {
+      console.error('❌ JSON Parse Error:', parseError);
+      console.error('❌ Could not parse response as JSON:', responseText);
+      throw new Error('Server returned invalid JSON response');
     }
     
     return data;
-  },
+    
+  } catch (error: any) {
+    console.error('❌ API Call Failed:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      endpoint,
+      url
+    });
+    
+    throw error;
+  }
+}
 
-  async register(userData: any) {
-    const data: any = await this.request('/auth/register', {
+export const api = {
+  auth: {
+    
+    login: async (credentials: { email: string, password: string }) => {
+  try {
+    console.log('🔍 Making login API call with:', credentials);
+    
+    const response = await apiCall('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+    
+    console.log('🔍 RAW BACKEND RESPONSE:', response);
+    console.log('🔍 Response type:', typeof response);
+    console.log('🔍 Response keys:', response ? Object.keys(response) : 'No response');
+    
+    // Handle different response structures
+    if (!response) {
+      console.error('❌ No response received');
+      throw new Error('No response from server');
+    }
+    
+    // Case 1: Token is at root level
+    if (response.token) {
+      console.log('✅ Token found at root level');
+      return {
+        success: true,
+        token: response.token,
+        user: response.user,
+        message: response.message || 'Login successful'
+      };
+    }
+    
+    // Case 2: Token is nested under data
+    if (response.data && response.data.token) {
+      console.log('✅ Token found under data property');
+      return {
+        success: true,
+        token: response.data.token,
+        user: response.data.user,
+        message: response.message || 'Login successful'
+      };
+    }
+    
+    // Case 3: Backend returned success but no token structure we recognize
+    if (response.success) {
+      console.warn('⚠️ Success but no recognizable token structure:', response);
+      // Return as-is and let frontend handle it
+      return response;
+    }
+    
+    // Case 4: Error response
+    console.error('❌ No token found in response structure');
+    throw new Error(response.message || 'Login failed: No token received');
+    
+  } catch (error) {
+    console.error('❌ Login API error:', error);
+    throw error;
+  }
+},
+
+   register: async (userData: any) => {
+  try {
+    console.log('🔍 Making registration API call with:', userData);
+    
+    const response = await apiCall('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
     
-    if (data.token) {
-      localStorage.setItem('token', data.token);
+    console.log('🔍 RAW REGISTRATION RESPONSE:', response);
+    console.log('🔍 Response type:', typeof response);
+    
+    // If we get a non-object response, something is wrong
+    if (typeof response !== 'object' || response === null) {
+      console.error('❌ Invalid response type from registration:', response);
+      throw new Error('Invalid server response during registration');
     }
     
-    return data;
+    // Handle different response structures
+    if (response.token) {
+      console.log('✅ Token found at root level');
+      return {
+        success: true,
+        token: response.token,
+        user: response.user,
+        message: response.message || 'Registration successful'
+      };
+    }
+    
+    if (response.data && response.data.token) {
+      console.log('✅ Token found under data property');
+      return {
+        success: true,
+        token: response.data.token,
+        user: response.data.user,
+        message: response.message || 'Registration successful'
+      };
+    }
+    
+    // If backend returned an error
+    if (!response.success) {
+      console.error('❌ Backend returned error:', response.message);
+      throw new Error(response.message || 'Registration failed');
+    }
+    
+    // If success but no token structure we recognize
+    console.warn('⚠️ Success but no recognizable token structure:', response);
+    return response;
+    
+  } catch (error) {
+    console.error('❌ Registration API error:', error);
+    throw error;
+  }
+},
+    
+
+    getMe: () => apiCall('/auth/me'),
+    
+    // Add test endpoint
+    test: () => apiCall('/auth/test'),
   },
 
-  async getOpportunities() {
-    return this.request('/opportunities');
+  events: {
+    getAll: () => apiCall('/events'),
+    getOne: (id: string) => apiCall(`/events/${id}`),
+    create: (eventData: any) =>
+      apiCall('/events', {
+        method: 'POST',
+        body: JSON.stringify(eventData),
+      }),
+    update: (id: string, eventData: any) =>
+      apiCall(`/events/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(eventData),
+      }),
+    delete: (id: string) =>
+      apiCall(`/events/${id}`, { method: 'DELETE' }),
+    getMyBookings: () => apiCall('/events/my-bookings'),
   },
 
-  async createBooking(opportunityId: string) {
-    return this.request('/bookings', {
-      method: 'POST',
-      body: JSON.stringify({ opportunity_id: opportunityId }),
-    });
+  opportunities: {
+    getAll: () => apiCall('/opportunities'),
+    getOne: (id: string) => apiCall(`/opportunities/${id}`),
+    create: (opportunityData: any) =>
+      apiCall('/opportunities', {
+        method: 'POST',
+        body: JSON.stringify(opportunityData),
+      }),
+  },
+
+  volunteer: {
+    getDashboard: () => apiCall('/volunteer/dashboard'),
+    getWorkHistory: () => apiCall('/volunteer/work-history'),
+    getBookedOpportunities: () => apiCall('/volunteer/bookings'),
+    addWorkProof: (workId: string, proofData: any) =>
+      apiCall(`/volunteer/work/${workId}/proof`, {
+        method: 'POST',
+        body: JSON.stringify(proofData),
+      }),
+  },
+
+  admin: {
+    getDashboardStats: () => apiCall('/admin/stats'),
+    getVolunteers: () => apiCall('/admin/volunteers'),
+    getNGOs: () => apiCall('/admin/ngos'),
+    getEventBookings: () => apiCall('/admin/bookings'),
+    updateBookingStatus: (id: string, statusData: any) =>
+      apiCall(`/admin/bookings/${id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify(statusData),
+      }),
+  },
+};
+
+export const authHelper = {
+  saveToken: (token: string) => {
+    if (token) {
+      localStorage.setItem('token', token);
+      console.log('✅ Token saved to localStorage:', token.substring(0, 20) + '...');
+    } else {
+      console.error('❌ No token provided to save');
+    }
+  },
+  
+  getToken: () => {
+    const token = localStorage.getItem('token');
+    console.log('🔐 Token retrieved from localStorage:', token ? 'YES' : 'NO');
+    return token;
+  },
+  
+  removeToken: () => {
+    localStorage.removeItem('token');
+    console.log('🗑️ Token removed from localStorage');
+  },
+  
+  isLoggedIn: () => {
+    const loggedIn = !!localStorage.getItem('token');
+    console.log('🔐 Login status check:', loggedIn ? 'LOGGED IN' : 'NOT LOGGED IN');
+    return loggedIn;
+  },
+  
+  // Add token verification
+  verifyToken: async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return false;
+      
+      // Test token by making a simple API call
+      await api.auth.getMe();
+      return true;
+    } catch (error) {
+      console.error('❌ Token verification failed:', error);
+      return false;
+    }
   }
 };
