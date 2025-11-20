@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
 const { isAuthenticated, isAdmin } = require('../middleware/auth');
-
+const { protect, authorize } = require('../middleware/auth');
 // @route   GET /api/admin/users
 // @desc    Get all users with filtering
 // @access  Private/Admin
